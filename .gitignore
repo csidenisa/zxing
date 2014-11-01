@@ -2,3 +2,7 @@ target
 private
 .idea
 *.iml
+local.properties
+android-client/.gradle
+android-client/app/build
+android-client/build
