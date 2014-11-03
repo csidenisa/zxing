@@ -52,6 +52,7 @@ public final class CameraManager {
   private final CameraConfigurationManager configManager;
   private Integer cameraId;
   private Camera camera;
+  private int scannerOrientation;
   private AutoFocusManager autoFocusManager;
   private Rect framingRect;
   private Rect framingRectInPreview;
@@ -66,7 +67,7 @@ public final class CameraManager {
    */
   private final PreviewCallback previewCallback;
 
-  public CameraManager(Context context) {
+    public CameraManager(Context context) {
     this.context = context;
     this.configManager = new CameraConfigurationManager(context);
     previewCallback = new PreviewCallback(configManager);
@@ -167,17 +168,16 @@ public final class CameraManager {
           case Surface.ROTATION_270: degrees = 270; break;
       }
 
-      int result = 0;
       Camera.CameraInfo info = new Camera.CameraInfo();
       Camera.getCameraInfo(cameraId, info);
       if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-        result = (info.orientation + degrees) % 360;
-        result = (360 - result) % 360;  // compensate the mirror
+        scannerOrientation = (info.orientation + degrees) % 360;
+        scannerOrientation = (360 - scannerOrientation) % 360;  // compensate the mirror
       } else {  // back-facing
-        result = (info.orientation - degrees + 360) % 360;
+        scannerOrientation = (info.orientation - degrees + 360) % 360;
       }
 
-      theCamera.setDisplayOrientation(result);
+      theCamera.setDisplayOrientation(scannerOrientation);
       theCamera.startPreview();
 
       previewing = true;
