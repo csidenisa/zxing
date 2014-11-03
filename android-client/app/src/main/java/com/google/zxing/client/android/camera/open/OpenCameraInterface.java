@@ -18,6 +18,7 @@ package com.google.zxing.client.android.camera.open;
 
 import android.hardware.Camera;
 import android.util.Log;
+import android.util.Pair;
 
 public final class OpenCameraInterface {
 
@@ -33,7 +34,7 @@ public final class OpenCameraInterface {
    * @param cameraId camera ID of the camera to use. A negative value means "no preference"
    * @return handle to {@link Camera} that was opened
    */
-  public static Camera open(int cameraId) {
+  public static Pair<Camera, Integer> open(int cameraId) {
     
     int numCameras = Camera.getNumberOfCameras();
     if (numCameras == 0) {
@@ -54,7 +55,7 @@ public final class OpenCameraInterface {
         }
         index++;
       }
-      
+
       cameraId = index;
     }
 
@@ -66,13 +67,15 @@ public final class OpenCameraInterface {
       if (explicitRequest) {
         Log.w(TAG, "Requested camera does not exist: " + cameraId);
         camera = null;
+        cameraId = -1;
       } else {
         Log.i(TAG, "No camera facing back; returning camera #0");
-        camera = Camera.open(0);
+        cameraId = 0;
+        camera = Camera.open(cameraId);
       }
     }
     
-    return camera;
+    return Pair.create(camera, cameraId);
   }
   
   
@@ -81,7 +84,7 @@ public final class OpenCameraInterface {
    *
    * @return handle to {@link Camera} that was opened
    */
-  public static Camera open() {
+  public static Pair<Camera, Integer> open() {
     return open(-1);
   }
 
