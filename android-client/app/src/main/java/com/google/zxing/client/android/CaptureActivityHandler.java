@@ -68,7 +68,6 @@ public final class CaptureActivityHandler extends Handler {
         new ViewfinderResultPointCallback(activity.getViewfinderView()));
     decodeThread.start();
     state = State.SUCCESS;
-
     // Start ourselves capturing previews and decoding.
     this.cameraManager = cameraManager;
     cameraManager.startPreview();
@@ -161,5 +160,4 @@ public final class CaptureActivityHandler extends Handler {
       activity.drawViewfinder();
     }
   }
-
 }

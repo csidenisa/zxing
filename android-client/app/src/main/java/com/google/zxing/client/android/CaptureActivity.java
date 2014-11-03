@@ -17,8 +17,6 @@
 package com.google.zxing.client.android;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -27,7 +25,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 import android.view.KeyEvent;
-import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -37,16 +34,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.zxing.BarcodeFormat;
-import com.google.zxing.DecodeHintType;
 import com.google.zxing.Result;
-import com.google.zxing.ResultMetadataType;
 import com.google.zxing.ResultPoint;
 import com.google.zxing.client.android.camera.CameraManager;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.EnumSet;
-import java.util.Map;
 
 /**
  * This activity opens the camera and does the actual scanning on a background thread. It draws a
@@ -60,31 +54,13 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
   private static final String TAG = CaptureActivity.class.getSimpleName();
 
-  private static final long DEFAULT_INTENT_RESULT_DURATION_MS = 1500L;
-  private static final long BULK_MODE_SCAN_DELAY_MS = 1000L;
-
-  private static final String[] ZXING_URLS = { "http://zxing.appspot.com/scan", "zxing://scan/" };
-
-  public static final int HISTORY_REQUEST_CODE = 0x0000bacc;
-
-  private static final Collection<ResultMetadataType> DISPLAYABLE_METADATA_TYPES =
-      EnumSet.of(ResultMetadataType.ISSUE_NUMBER,
-                 ResultMetadataType.SUGGESTED_PRICE,
-                 ResultMetadataType.ERROR_CORRECTION_LEVEL,
-                 ResultMetadataType.POSSIBLE_COUNTRY);
-
   private CameraManager cameraManager;
   private CaptureActivityHandler handler;
   private Result savedResultToShow;
   private ViewfinderView viewfinderView;
   private TextView statusView;
   private View resultView;
-  private Result lastResult;
   private boolean hasSurface;
-  private IntentSource source;
-  private String sourceUrl;
-  private Collection<BarcodeFormat> decodeFormats;
-  private Map<DecodeHintType,?> decodeHints;
   private String characterSet;
   private InactivityTimer inactivityTimer;
   private BeepManager beepManager;
@@ -133,9 +109,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     statusView = (TextView) findViewById(R.id.status_view);
 
     handler = null;
-    lastResult = null;
-
-    setRequestedOrientation(getCurrentOrientation());
 
     resetStatusView();
 
@@ -155,20 +128,7 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
 
     inactivityTimer.onResume();
 
-    source = IntentSource.NONE;
-    decodeFormats = null;
     characterSet = null;
-  }
-
-  private int getCurrentOrientation() {
-    int rotation = getWindowManager().getDefaultDisplay().getRotation();
-    switch (rotation) {
-      case Surface.ROTATION_0:
-      case Surface.ROTATION_90:
-        return ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
-      default:
-        return ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE;
-    }
   }
 
   @Override
@@ -257,15 +217,16 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
    */
   public void handleDecode(Result rawResult, Bitmap barcode, float scaleFactor) {
     inactivityTimer.onActivity();
-    lastResult = rawResult;
 
-    Toast.makeText(this, lastResult.getText(), Toast.LENGTH_LONG).show();
+    Toast.makeText(this, rawResult.getText(), Toast.LENGTH_LONG).show();
     boolean fromLiveScan = barcode != null;
     if (fromLiveScan) {
       // Then not from history, so beep/vibrate and we have an image to draw on
       beepManager.playBeepSoundAndVibrate();
       drawResultPoints(barcode, scaleFactor, rawResult);
     }
+
+    restartPreviewAfterDelay(2000);
   }
 
   /**
@@ -323,27 +284,17 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
       cameraManager.openDriver(surfaceHolder);
       // Creating the handler starts the preview, which can also throw a RuntimeException.
       if (handler == null) {
-        handler = new CaptureActivityHandler(this, decodeFormats, decodeHints, characterSet, cameraManager);
+          Collection<BarcodeFormat> decodeFormats = EnumSet.of(BarcodeFormat.CODE_39);
+          handler = new CaptureActivityHandler(this, decodeFormats, null, characterSet, cameraManager);
       }
       decodeOrStoreSavedBitmap(null, null);
     } catch (IOException ioe) {
-      Log.w(TAG, ioe);
-      displayFrameworkBugMessageAndExit();
+      Log.e(TAG, "I/O camera failed.", ioe);
     } catch (RuntimeException e) {
       // Barcode Scanner has seen crashes in the wild of this variety:
       // java.?lang.?RuntimeException: Fail to connect to camera service
-      Log.w(TAG, "Unexpected error initializing camera", e);
-      displayFrameworkBugMessageAndExit();
+      Log.e(TAG, "Unexpected error initializing camera", e);
     }
-  }
-
-  private void displayFrameworkBugMessageAndExit() {
-    AlertDialog.Builder builder = new AlertDialog.Builder(this);
-    builder.setTitle(getString(R.string.app_name));
-    builder.setMessage(getString(R.string.msg_camera_framework_bug));
-    builder.setPositiveButton(R.string.button_ok, new FinishListener(this));
-    builder.setOnCancelListener(new FinishListener(this));
-    builder.show();
   }
 
   public void restartPreviewAfterDelay(long delayMS) {
@@ -358,7 +309,6 @@ public final class CaptureActivity extends Activity implements SurfaceHolder.Cal
     statusView.setText(R.string.msg_default_status);
     statusView.setVisibility(View.VISIBLE);
     viewfinderView.setVisibility(View.VISIBLE);
-    lastResult = null;
   }
 
   public void drawViewfinder() {
